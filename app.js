@@ -8,6 +8,7 @@ const money = c => { const n = Math.abs(Math.round(c)), g = Math.floor(n / 1e4),
 
 let R = [], P = {}, SH = {}, have = {}, unlocked = new Set(), S = {}, ready = false;
 const NAMES = {};
+let FAIL = 0;
 try { SH = JSON.parse(localStorage.gw2s || '{}'); $('#key').value = localStorage.gw2key || ''; } catch {}
 
 async function get(path, key) {
@@ -28,7 +29,7 @@ async function chunked(path, ids, onProg) {
   const worker = async () => {
     while (i < chunks.length) {
       const c = chunks[i++];
-      try { out.push(...await get(path + c.join(','))); } catch {}
+      try { out.push(...await get(path + c.join(','))); } catch { FAIL++; }
       onProg && onProg(++done / chunks.length);
     }
   };
@@ -37,7 +38,7 @@ async function chunked(path, ids, onProg) {
 }
 
 async function loadRecipes() {
-  try { const c = JSON.parse(localStorage.gw2r || 'null'); if (c && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
+  try { const c = JSON.parse(localStorage.gw2r || 'null'); if (c && c.r.length > 5000 && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
   const ids = await get('/recipes');
   const raw = await chunked('/recipes?ids=', ids, p => say('Loading recipes ' + Math.round(p * 100) + '% (first run only)'));
   R = raw.filter(r => r.output_item_id).map(r => ({
@@ -45,7 +46,7 @@ async function loadRecipes() {
     i: r.ingredients.filter(x => x.type === 'Item').map(x => [x.id, x.count]),
     ok: r.ingredients.every(x => x.type === 'Item') && !(r.guild_ingredients && r.guild_ingredients.length),
     d: r.disciplines, f: r.flags }));
-  try { localStorage.gw2r = JSON.stringify({ t: Date.now(), r: R }); } catch {}
+  if (!FAIL) try { localStorage.gw2r = JSON.stringify({ t: Date.now(), r: R }); } catch {}
 }
 
 async function loadPrices() {
@@ -63,7 +64,7 @@ async function scan() {
   try {
     try { localStorage.gw2key = key; } catch {}
     say('Reading your account...');
-    const warn = [];
+    const warn = []; FAIL = 0;
     const opt = async p => { try { return await get(p, key); } catch { warn.push(p.replace('/account/', '')); return []; } };
     const mats = await get('/account/materials', key);
     const bank = await opt('/account/bank');
@@ -146,11 +147,16 @@ async function names(ids) {
 
 async function refresh() {
   if (!ready) return;
+  try { await refresh2(); } catch (e) { say('Error: ' + e.message); }
+}
+async function refresh2() {
   S = { instantSell: $('input[name=sell]:checked').value === 'instant', undercut: $('#undercut').checked,
     instantBuy: $('input[name=buy]:checked').value === 'instant', budget: $('#budget').value * 1e4, opp: $('#opp').checked };
   $('#bv').textContent = $('#budget').value + 'g';
   const d = $('#disc').value, min = $('#min').value * 1e4, by = $('#sort').value;
-  let rows = compute().filter(x => x.profit >= min && (!d || x.r.d.includes(d) || (d === 'Mystic Forge' && x.forge))
+  const all = compute();
+  say(R.length + ' recipes, ' + Object.keys(P).length + ' prices, ' + all.length + ' profitable crafts before filters' + (FAIL ? ', ' + FAIL + ' data requests failed (rescan)' : '') + '.');
+  let rows = all.filter(x => x.profit >= min && (!d || x.r.d.includes(d) || (d === 'Mystic Forge' && x.forge))
     && !($('#nolow').checked && x.low) && !($('#nolearn').checked && !x.learned));
   rows.sort((a, b) => b[by] - a[by]);
   rows = rows.slice(0, 100);
