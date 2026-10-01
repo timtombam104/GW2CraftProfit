@@ -12,7 +12,9 @@ try { SH = JSON.parse(localStorage.gw2s || '{}'); $('#key').value = localStorage
 
 async function get(path, key) {
   for (let t = 0; t < 4; t++) {
-    const r = await fetch(API + path, key ? { headers: { Authorization: 'Bearer ' + key } } : {});
+    let r;
+    try { r = await fetch(API + path + (key ? (path.includes('?') ? '&' : '?') + 'access_token=' + encodeURIComponent(key) : '')); }
+    catch { if (t < 3) { await sleep(1000); continue; } throw new Error('Network request blocked or failed for ' + path.split('?')[0]); }
     if (r.status === 429) { await sleep(1500); continue; }
     if (!r.ok) throw new Error(path.split('?')[0] + ' failed (' + r.status + ')');
     return r.json();
@@ -74,7 +76,7 @@ async function scan() {
     $('#disc').innerHTML = '<option value="">All</option>' + [...ds].sort().map(d => `<option>${esc(d)}</option>`).join('');
     ready = true; say('Done.'); refresh();
   } catch (e) {
-    say('Error: ' + e.message + '. Check the key is valid and has account, inventories and unlocks permissions.');
+    say('Error: ' + e.message + (/\(40[01]\)/.test(e.message) ? '. Check the key has account, inventories and unlocks permissions.' : '.'));
   }
   $('#scan').disabled = false;
 }
