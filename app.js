@@ -7,7 +7,7 @@ const money = c => { const n = Math.abs(Math.round(c)), g = Math.floor(n / 1e4),
   return (c < 0 ? '-' : '') + (g ? g + 'g ' : '') + (g || s ? s + 's ' : '') + (n % 100) + 'c'; };
 
 let R = [], P = {}, SH = {}, have = {}, unlocked = new Set(), S = {}, ready = false;
-const NAMES = {};
+const NAMES = {}, ITEMS = {};
 let FAIL = 0;
 try { SH = JSON.parse(localStorage.gw2s || '{}'); $('#key').value = localStorage.gw2key || ''; } catch {}
 
@@ -38,15 +38,15 @@ async function chunked(path, ids, onProg) {
 }
 
 async function loadRecipes() {
-  try { const c = JSON.parse(localStorage.gw2r2 || 'null'); if (c && c.r.length > 5000 && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
+  try { const c = JSON.parse(localStorage.gw2r3 || 'null'); if (c && c.r.length > 5000 && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
   const ids = await get('/recipes');
   const raw = await chunked('/recipes?ids=', ids, p => say('Loading recipes ' + Math.round(p * 100) + '% (first run only)'));
   R = raw.filter(r => r.output_item_id).map(r => ({
     id: r.id, o: r.output_item_id, c: r.output_item_count,
     i: r.ingredients.filter(x => (x.type || 'Item') === 'Item').map(x => [x.id ?? x.item_id, x.count]),
     ok: r.ingredients.every(x => (x.type || 'Item') === 'Item') && !(r.guild_ingredients && r.guild_ingredients.length),
-    d: r.disciplines, f: r.flags }));
-  if (!FAIL) try { localStorage.gw2r2 = JSON.stringify({ t: Date.now(), r: R }); } catch {}
+    d: r.disciplines, f: r.flags, t: r.type || '' }));
+  if (!FAIL) try { localStorage.gw2r3 = JSON.stringify({ t: Date.now(), r: R }); } catch {}
 }
 
 async function loadPrices() {
@@ -152,7 +152,7 @@ function plan(id, qty, used, d, log) {
 function compute() {
   const rows = [];
   for (const r of R) {
-    if (!r.ok || !P[r.o] || !r.i.length) continue;
+    if (!r.ok || !P[r.o] || !r.i.length || /^Guild/.test(r.t)) continue;
     const unit = sellNet(r.o) * r.c;
     if (unit <= 0) continue;
     const forge = isForge(r), learned = isLearned(r), daily = DAILY.has(r.o);
@@ -184,7 +184,7 @@ function compute() {
 
 async function names(ids) {
   const need = [...new Set(ids)].filter(i => i && !NAMES[i]);
-  for (const it of await chunked('/items?ids=', need)) NAMES[it.id] = it.name;
+  for (const it of await chunked('/items?ids=', need)) { NAMES[it.id] = it.name; ITEMS[it.id] = it; }
 }
 
 const nm = id => esc(NAMES[id] || id);
@@ -219,7 +219,13 @@ async function refresh2() {
     && !($('#nolow').checked && x.low) && !($('#nolearn').checked && !x.learned));
   rows.sort((a, b) => b[by] - a[by]);
   rows = rows.slice(0, 400);
-  if ($('#nobox').checked) { await names(rows.map(x => x.r.o)); rows = rows.filter(x => !BOX.test(NAMES[x.r.o] || '')); }
+  await names(rows.map(x => x.r.o));
+  const hide = x => {
+    const it = ITEMS[x.r.o] || {}, fl = it.flags || [];
+    return fl.includes('AccountBound') || fl.includes('SoulbindOnAcquire')
+      || ($('#nobox').checked && (it.type === 'Container' || BOX.test(it.name || '')));
+  };
+  rows = rows.filter(x => !hide(x));
   rows = rows.slice(0, 100);
   const ids = new Set();
   for (const x of rows) {
