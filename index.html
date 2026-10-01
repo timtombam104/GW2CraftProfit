@@ -33,6 +33,7 @@
       <label>Max spend per recommendation: <b id="bv">0g</b>
         <input class="ctl" type="range" id="budget" min="0" max="200" value="0"></label>
       <label><input class="ctl" type="checkbox" id="opp" checked> Count my materials at their sale value</label>
+      <label><input class="ctl" type="checkbox" id="chain" checked> Include intermediate crafts (e.g. refine materials first)</label>
     </fieldset>
     <fieldset><legend>Filters</legend>
       <label>Discipline <select class="ctl" id="disc"><option value="">All</option></select></label>
@@ -40,6 +41,7 @@
       <label>Sort by <select class="ctl" id="sort">
         <option value="profit">Total profit</option><option value="per">Profit per craft</option><option value="roi">Return on cost</option></select></label>
       <label><input class="ctl" type="checkbox" id="nolow"> Hide low demand items</label>
+      <label><input class="ctl" type="checkbox" id="nobox" checked> Hide boxes (armour and weapon boxes)</label>
       <label><input class="ctl" type="checkbox" id="nolearn"> Hide recipes I haven't unlocked</label>
     </fieldset>
   </section>

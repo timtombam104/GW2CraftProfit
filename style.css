@@ -23,3 +23,8 @@ th{color:var(--mute);font-weight:500}
 .pos{color:var(--ok)}
 small{color:var(--mute);display:block}
 @media(max-width:640px){th:nth-child(3),td:nth-child(3){display:none}}
+tr.main{cursor:pointer}
+tr.main:hover{background:#1b212c}
+tr.detail td{background:#161b24;font-size:.88rem}
+tr.detail ul{margin:6px 0;padding-left:20px}
+tr.detail p{margin:4px 0}
