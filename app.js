@@ -38,15 +38,15 @@ async function chunked(path, ids, onProg) {
 }
 
 async function loadRecipes() {
-  try { const c = JSON.parse(localStorage.gw2r || 'null'); if (c && c.r.length > 5000 && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
+  try { const c = JSON.parse(localStorage.gw2r2 || 'null'); if (c && c.r.length > 5000 && Date.now() - c.t < 6048e5) { R = c.r; return; } } catch {}
   const ids = await get('/recipes');
   const raw = await chunked('/recipes?ids=', ids, p => say('Loading recipes ' + Math.round(p * 100) + '% (first run only)'));
   R = raw.filter(r => r.output_item_id).map(r => ({
     id: r.id, o: r.output_item_id, c: r.output_item_count,
-    i: r.ingredients.filter(x => x.type === 'Item').map(x => [x.id, x.count]),
-    ok: r.ingredients.every(x => x.type === 'Item') && !(r.guild_ingredients && r.guild_ingredients.length),
+    i: r.ingredients.filter(x => (x.type || 'Item') === 'Item').map(x => [x.id ?? x.item_id, x.count]),
+    ok: r.ingredients.every(x => (x.type || 'Item') === 'Item') && !(r.guild_ingredients && r.guild_ingredients.length),
     d: r.disciplines, f: r.flags }));
-  if (!FAIL) try { localStorage.gw2r = JSON.stringify({ t: Date.now(), r: R }); } catch {}
+  if (!FAIL) try { localStorage.gw2r2 = JSON.stringify({ t: Date.now(), r: R }); } catch {}
 }
 
 async function loadPrices() {
@@ -105,12 +105,15 @@ const sellNet = id => { const p = P[id]; if (!p) return 0;
 const buyCost = id => { const p = P[id]; if (!p) return Infinity;
   return S.instantBuy ? (p.s || Infinity) : (p.b ? p.b + 1 : Infinity); };
 
+let DBG = {};
 function compute() {
   const rows = [];
+  DBG = { ok: 0, priced: 0, sells: 0, afford: 0, top: -Infinity, topId: 0 };
   for (const r of R) {
-    if (!r.ok || !P[r.o]) continue;
+    if (!r.ok) continue; DBG.ok++;
+    if (!P[r.o]) continue; DBG.priced++;
     const unit = sellNet(r.o) * r.c;
-    if (unit <= 0) continue;
+    if (unit <= 0) continue; DBG.sells++;
     const forge = !r.d.length || r.d.includes('Mystic Forge');
     const learned = forge || unlocked.has(r.id) || r.f.includes('AutoLearned');
     let rc = 0, note = '';
@@ -130,8 +133,10 @@ function compute() {
       }
       if (!ok || buy > S.budget) break;
       const profit = k * unit - buy - opp - rc;
+      if (profit > DBG.top) { DBG.top = profit; DBG.topId = r.o; DBG.topK = k; }
       if (!best || profit > best.profit) best = { k, profit, buy, opp };
     }
+    if (best) DBG.afford++;
     if (!best || best.profit <= 0) continue;
     const miss = r.i.map(([id, n]) => [id, Math.max(0, n * best.k - (have[id] || 0))]).filter(x => x[1]);
     rows.push({ r, ...best, per: best.profit / best.k, roi: best.profit / (best.buy + best.opp + rc || 1),
@@ -155,7 +160,7 @@ async function refresh2() {
   $('#bv').textContent = $('#budget').value + 'g';
   const d = $('#disc').value, min = $('#min').value * 1e4, by = $('#sort').value;
   const all = compute();
-  say(R.length + ' recipes, ' + Object.keys(P).length + ' prices, ' + all.length + ' profitable crafts before filters' + (FAIL ? ', ' + FAIL + ' data requests failed (rescan)' : '') + '.');
+  say(R.length + ' recipes, ' + Object.keys(P).length + ' prices, ' + all.length + ' profitable crafts before filters [usable recipes ' + DBG.ok + ', output priced ' + DBG.priced + ', sellable ' + DBG.sells + ', affordable ' + DBG.afford + ', best margin ' + (DBG.top === -Infinity ? 'none' : money(DBG.top) + ' on item ' + DBG.topId + ' x' + DBG.topK) + ']' + (FAIL ? ', ' + FAIL + ' data requests failed (rescan)' : '') + '.');
   let rows = all.filter(x => x.profit >= min && (!d || x.r.d.includes(d) || (d === 'Mystic Forge' && x.forge))
     && !($('#nolow').checked && x.low) && !($('#nolearn').checked && !x.learned));
   rows.sort((a, b) => b[by] - a[by]);
