@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GW2 Craft Profit Finder</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Craft Profit Finder</h1>
+  <p>Scans your Guild Wars 2 materials, bank and shared inventory, then ranks what to craft for the best trading post profit.</p>
+</header>
+<main>
+  <section class="panel">
+    <label for="key">API key</label>
+    <input id="key" type="password" autocomplete="off" placeholder="Paste your API key">
+    <p class="hint">Required permissions: <b>account</b>, <b>inventories</b>, <b>unlocks</b>. Create one at account.arena.net/applications. The key is stored only in this browser and sent only to the official GW2 API.</p>
+    <button id="scan">Scan my account</button>
+    <button id="sheets" class="ghost" title="Downloads item data once (large) to find recipe sheet prices">Find recipe sheet prices (one-time, large download)</button>
+    <p id="status" role="status"></p>
+  </section>
+
+  <section class="panel grid">
+    <fieldset><legend>When I sell</legend>
+      <label><input class="ctl" type="radio" name="sell" value="instant" checked> Instant sell (highest buy order)</label>
+      <label><input class="ctl" type="radio" name="sell" value="list"> List for sale (lowest sell listing)</label>
+      <label><input class="ctl" type="checkbox" id="undercut"> Undercut listings by 1 copper</label>
+    </fieldset>
+    <fieldset><legend>Buying extra materials</legend>
+      <label><input class="ctl" type="radio" name="buy" value="instant" checked> Instant buy</label>
+      <label><input class="ctl" type="radio" name="buy" value="order"> Buy orders (slower, cheaper)</label>
+      <label>Max spend per recommendation: <b id="bv">0g</b>
+        <input class="ctl" type="range" id="budget" min="0" max="200" value="0"></label>
+      <label><input class="ctl" type="checkbox" id="opp" checked> Count my materials at their sale value</label>
+    </fieldset>
+    <fieldset><legend>Filters</legend>
+      <label>Discipline <select class="ctl" id="disc"><option value="">All</option></select></label>
+      <label>Minimum profit (gold) <input class="ctl" type="number" id="min" value="0" min="0"></label>
+      <label>Sort by <select class="ctl" id="sort">
+        <option value="profit">Total profit</option><option value="per">Profit per craft</option><option value="roi">Return on cost</option></select></label>
+      <label><input class="ctl" type="checkbox" id="nolow"> Hide low demand items</label>
+      <label><input class="ctl" type="checkbox" id="nolearn"> Hide recipes I haven't unlocked</label>
+    </fieldset>
+  </section>
+
+  <section>
+    <table id="out"><thead><tr><th>Craft</th><th>Total profit</th><th>Per craft</th><th>Materials to buy</th></tr></thead><tbody></tbody></table>
+    <p class="hint">Profit includes the 15% trading post fee. Intermediate crafts (e.g. making your own ingots) are not chained. Prices are live from the API.</p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
