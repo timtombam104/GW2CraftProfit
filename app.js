@@ -32,7 +32,7 @@ async function chunked(path, ids, onProg) {
       onProg && onProg(++done / chunks.length);
     }
   };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 3 }, worker));
   return out;
 }
 
@@ -63,9 +63,13 @@ async function scan() {
   try {
     try { localStorage.gw2key = key; } catch {}
     say('Reading your account...');
-    const [mats, bank, shared, rec] = await Promise.all([
-      get('/account/materials', key), get('/account/bank', key),
-      get('/account/inventory', key), get('/account/recipes', key)]);
+    const warn = [];
+    const opt = async p => { try { return await get(p, key); } catch { warn.push(p.replace('/account/', '')); return []; } };
+    const mats = await get('/account/materials', key);
+    const bank = await opt('/account/bank');
+    const shared = await opt('/account/inventory');
+    const rec = await opt('/account/recipes');
+    if (warn.length) say('Could not read: ' + warn.join(', ') + '. Continuing without it.');
     have = {};
     for (const s of [...mats, ...bank, ...shared]) if (s) have[s.id] = (have[s.id] || 0) + s.count;
     unlocked = new Set(rec);
@@ -74,7 +78,7 @@ async function scan() {
     const ds = new Set(); R.forEach(r => r.d.forEach(d => ds.add(d)));
     ds.add('Mystic Forge');
     $('#disc').innerHTML = '<option value="">All</option>' + [...ds].sort().map(d => `<option>${esc(d)}</option>`).join('');
-    ready = true; say('Done.'); refresh();
+    ready = true; say(warn.length ? 'Done, but could not read: ' + warn.join(', ') + '.' : 'Done.'); refresh();
   } catch (e) {
     say('Error: ' + e.message + (/\(40[01]\)/.test(e.message) ? '. Check the key has account, inventories and unlocks permissions.' : '.'));
   }
